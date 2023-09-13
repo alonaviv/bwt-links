@@ -2,7 +2,7 @@ from flask import Flask, redirect, request
 import requests
 import threading
 import time
-
+from urllib.parse import urlparse, parse_qs
 
 app = Flask(__name__)
 app.config.from_pyfile('config.cfg')
@@ -30,28 +30,46 @@ WHATSAPP_GROUP = 'https://chat.whatsapp.com/La9NtdsfoXC0xKnCVjTdIw'
 #     response = requests.post(endpoint, data=data, headers=headers)
 
 
-def send_fb_pixel_event(user_agent):
+def send_fb_pixel_event(fbclid):
     data = {
         "data": [{
             "event_name": "JoinWhatsApp",
             "event_time": int(time.time()),
             "action_source": "website",
-            "user_agent": user_agent,
-            "event_source_url": request.url,
+            "custom_data": {"fbclid": fbclid} if fbclid else {}
         }]
 
     }
     fb_endpoint = f"https://graph.facebook.com/v18.0/{app.config['PIXEL_ID']}/events?access_token={app.config['PIXEL_ACCESS_TOKEN']}"
-    requests.post(fb_endpoint, json=data)
+    res = requests.post(fb_endpoint, json=data)
+    print(res.text)
 
 
 @app.route('/whatsapp-from-lineapp')
 def redirect_whatsapp_on_lineapp():
+    referer = request.headers.get("Referer", "")
+
+    query_parameters = parse_qs(urlparse(referer).query)
+
+    fbclid = query_parameters.get('fbclid', [None])[0]
     user_agent = request.headers.get('User-Agent')
     utm_params = {key: value for key, value in request.args.items() if key.startswith('utm_')}
 
     # threading.Thread(target=send_ga_event, args=(utm_params, user_agent)).start()
-    threading.Thread(target=send_fb_pixel_event, args=(user_agent,)).start()
+    threading.Thread(target=send_fb_pixel_event, args=(fbclid,)).start()
+
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Test Page</title>
+    </head>
+    <body>
+        <h1>This is a test page</h1>
+        <p>Got {fbclid}</p>
+    </body>
+    </html>
+    """
 
     return redirect(WHATSAPP_GROUP, code=302)
 
