@@ -66,6 +66,7 @@ def redirect_whatsapp_on_lineapp():
     </head>
     <body>
         <h1>This is a test page</h1>
+        <p>referer: {referer}</p>
         <p>Got {fbclid}</p>
     </body>
     </html>
